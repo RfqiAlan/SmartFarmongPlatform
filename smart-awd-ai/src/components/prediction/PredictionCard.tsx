@@ -109,7 +109,7 @@ export default function PredictionCard({
           <div className="grid grid-cols-3 gap-3">
             {prediction.predictedLevels.map((p, i) => (
               <div key={i} className="bg-[var(--bg-glass)] rounded-xl p-3 border border-[var(--bg-glass-border)] text-center relative overflow-hidden group">
-                <div className="text-xs text-[var(--text-secondary)] mb-1 font-medium">{p.time}</div>
+                <div className="text-xs text-[var(--text-secondary)] mb-1 font-medium">{p.date}</div>
                 <div className={`text-xl font-bold font-mono ${p.level < -10 ? 'text-amber-600 dark:text-amber-500' : p.level > 10 ? 'text-red-600 dark:text-red-500' : 'text-blue-600 dark:text-blue-400'}`}>
                   {p.level > 0 ? '+' : ''}{p.level.toFixed(1)}<span className="text-xs">cm</span>
                 </div>
