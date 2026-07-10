@@ -11,6 +11,7 @@ import PredictionCard from "@/components/prediction/PredictionCard";
 import WeatherCard from "@/components/prediction/WeatherCard";
 import ForecastCard from "@/components/prediction/ForecastCard";
 import AiAssistant from "@/components/chat/AiAssistant";
+import CalibrationPanel from "@/components/devices/CalibrationPanel";
 
 export default function DeviceDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -147,6 +148,11 @@ export default function DeviceDetail({ params }: { params: Promise<{ id: string 
           {/* Row 3: AI Prediction */}
           <div className="md:col-span-4 mt-2">
             <PredictionCard device={currentDevice} data={data} />
+          </div>
+
+          {/* Row 4: Calibration Panel */}
+          <div className="md:col-span-4 mt-2">
+            <CalibrationPanel deviceId={id} />
           </div>
 
           {/* Row 4: History Log Table */}
