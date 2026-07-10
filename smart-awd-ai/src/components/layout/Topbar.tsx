@@ -21,8 +21,6 @@ import {
 const navItems = [
   { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
-  { name: "AI Prediction", href: "/prediction", icon: Droplets },
-  { name: "AI Assistant", href: "/assistant", icon: Bot },
 ];
 
 export function Topbar() {

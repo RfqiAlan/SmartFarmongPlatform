@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { fetchWeatherForecast, WeatherForecast } from "@/utils/weatherApi";
-import { Cloud, Sun, CloudRain, CloudLightning, CloudSnow, CalendarDays, Droplets, Thermometer, Wind, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Cloud, Sun, CloudRain, CloudLightning, CloudSnow, CalendarDays, Droplets, Thermometer, Sunrise, Sunset, AlertTriangle, CheckCircle2 } from "lucide-react";
 
 export default function ForecastCard({ device }: { device: any }) {
   const [forecasts, setForecasts] = useState<WeatherForecast[]>([]);
@@ -50,7 +50,7 @@ export default function ForecastCard({ device }: { device: any }) {
         desc: `Hujan lebat (${precip}mm)! Buka saluran pembuangan air sawah.`,
         color: "text-red-700 dark:text-red-400",
         bg: "bg-red-500/10 border-red-500/20",
-        icon: <AlertTriangle size={14} className="mr-1" />
+        icon: <AlertTriangle size={14} className="mr-1 shrink-0" />
       };
     }
     if (precip >= 5 && precip < 20) {
@@ -59,7 +59,7 @@ export default function ForecastCard({ device }: { device: any }) {
         desc: `Air sawah akan bertambah (${precip}mm). Tunda pemupukan.`,
         color: "text-amber-700 dark:text-amber-500",
         bg: "bg-amber-500/10 border-amber-500/20",
-        icon: <Droplets size={14} className="mr-1" />
+        icon: <Droplets size={14} className="mr-1 shrink-0" />
       };
     }
     if (precip > 0 && precip < 5) {
@@ -68,7 +68,7 @@ export default function ForecastCard({ device }: { device: any }) {
         desc: "Hujan ringan, aman untuk tanaman padi.",
         color: "text-blue-700 dark:text-blue-400",
         bg: "bg-blue-500/10 border-blue-500/20",
-        icon: <CloudRain size={14} className="mr-1" />
+        icon: <CloudRain size={14} className="mr-1 shrink-0" />
       };
     }
     if (code === 0 || (code >= 1 && code <= 3)) {
@@ -77,7 +77,7 @@ export default function ForecastCard({ device }: { device: any }) {
         desc: "Cuaca cerah, sangat cocok untuk menjemur padi/gabah.",
         color: "text-green-700 dark:text-green-500",
         bg: "bg-green-500/10 border-green-500/20",
-        icon: <CheckCircle2 size={14} className="mr-1" />
+        icon: <CheckCircle2 size={14} className="mr-1 shrink-0" />
       };
     }
     return {
@@ -85,7 +85,7 @@ export default function ForecastCard({ device }: { device: any }) {
       desc: "Penjemuran mungkin kurang optimal hari ini.",
       color: "text-slate-700 dark:text-slate-400",
       bg: "bg-slate-500/10 border-slate-500/20",
-      icon: <Cloud size={14} className="mr-1" />
+      icon: <Cloud size={14} className="mr-1 shrink-0" />
     };
   };
 
@@ -96,11 +96,11 @@ export default function ForecastCard({ device }: { device: any }) {
   if (loading) {
     return (
       <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--bg-glass-border)] p-6 animate-shimmer h-full">
-        <div className="h-4 w-32 bg-[var(--bg-glass)] rounded mb-4"></div>
-        <div className="space-y-3">
-           <div className="bg-[var(--bg-glass)] rounded-xl w-full h-20"></div>
-           <div className="bg-[var(--bg-glass)] rounded-xl w-full h-20"></div>
-           <div className="bg-[var(--bg-glass)] rounded-xl w-full h-20"></div>
+        <div className="h-6 w-48 bg-[var(--bg-glass)] rounded mb-6"></div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+           <div className="bg-[var(--bg-glass)] rounded-2xl h-64"></div>
+           <div className="bg-[var(--bg-glass)] rounded-2xl h-64"></div>
+           <div className="bg-[var(--bg-glass)] rounded-2xl h-64"></div>
         </div>
       </div>
     );
@@ -113,58 +113,84 @@ export default function ForecastCard({ device }: { device: any }) {
   return (
     <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--bg-glass-border)] p-6 h-full flex flex-col justify-between">
       <h3 className="text-lg font-bold text-[var(--text-primary)] mb-6 flex items-center gap-2">
-        <CalendarDays size={20} className="text-blue-500" /> Info Cuaca Pertanian
+        <CalendarDays size={20} className="text-blue-500" /> Info Cuaca Pertanian (3 Hari)
       </h3>
       
-      <div className="flex flex-col gap-3">
+      {/* 3-Column Grid for Desktop */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {forecasts.map((f, i) => {
           const dateObj = new Date(f.date);
           const dateStr = dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
-          const dayName = i === 0 ? `HARI INI (${dateStr})` : i === 1 ? `BESOK (${dateStr})` : `${dateObj.toLocaleDateString('id-ID', { weekday: 'long' }).toUpperCase()} (${dateStr})`;
+          const dayName = i === 0 ? "Hari Ini" : i === 1 ? "Besok" : dateObj.toLocaleDateString('id-ID', { weekday: 'long' });
           const rec = getAgriRecommendation(f.weathercode, f.precipitation_sum);
           
           return (
-            <div key={i} className="flex flex-col md:flex-row md:items-center gap-4 p-4 bg-[var(--bg-glass)] rounded-xl border border-[var(--bg-glass-border)] hover:bg-[var(--bg-card-hover)] transition-colors">
-              {/* Left Side: Icon & Day */}
-              <div className="flex items-center gap-4 md:w-48 shrink-0">
-                <div className="w-12 h-12 bg-[var(--bg-primary)] rounded-full flex items-center justify-center border border-[var(--bg-glass-border)] shrink-0">
-                  {getWeatherIcon(f.weathercode, 24)}
-                </div>
-                <div>
-                  <div className="font-black text-[var(--text-primary)] tracking-wide">{dayName}</div>
-                  <div className="flex items-center gap-2 text-xs text-[var(--text-muted)] mt-0.5">
-                    <span className="flex items-center gap-0.5"><Thermometer size={12} /> {Math.round(f.temperature_max)}°</span>
+             <div key={i} className="flex flex-col p-5 bg-[var(--bg-glass)] rounded-2xl border border-[var(--bg-glass-border)] hover:-translate-y-1 hover:shadow-xl transition-all duration-300">
+               {/* Header: Day & Icon */}
+               <div className="flex justify-between items-center mb-5 border-b border-[var(--bg-glass-border)] pb-4">
+                 <div>
+                   <h4 className="font-bold text-lg text-[var(--text-primary)] tracking-wide capitalize">{dayName}</h4>
+                   <p className="text-xs text-[var(--text-muted)] mt-0.5">{dateStr}</p>
+                 </div>
+                 <div className="w-14 h-14 bg-gradient-to-br from-[var(--bg-primary)] to-[var(--bg-glass)] rounded-xl flex items-center justify-center border border-[var(--bg-glass-border)] shadow-inner shrink-0">
+                   {getWeatherIcon(f.weathercode, 32)}
+                 </div>
+               </div>
+               
+               {/* Advanced Metrics (Grid 2x2) */}
+               <div className="grid grid-cols-2 gap-y-4 gap-x-2 mb-6">
+                  {/* Suhu */}
+                  <div className="flex flex-col bg-[var(--bg-primary)] p-2.5 rounded-lg border border-[var(--bg-glass-border)]">
+                    <span className="flex items-center gap-1.5 text-[var(--text-muted)] text-[10px] uppercase font-bold tracking-wider mb-1">
+                      <Thermometer size={12} /> Suhu
+                    </span>
+                    <span className="font-mono font-bold text-sm text-[var(--text-primary)]">
+                      {Math.round(f.temperature_min)}° - {Math.round(f.temperature_max)}°<span className="text-[10px] text-[var(--text-muted)] font-sans">C</span>
+                    </span>
                   </div>
-                </div>
-              </div>
-              
-              {/* Right Side: Layman Explanation & Quick Stats */}
-              <div className={`flex-1 p-3 rounded-lg border ${rec.bg} flex items-center justify-between gap-4`}>
-                <div>
-                  <div className={`text-sm font-bold flex items-center ${rec.color}`}>
-                    {rec.icon} {rec.title}
+                  
+                  {/* Curah Hujan */}
+                  <div className="flex flex-col bg-[var(--bg-primary)] p-2.5 rounded-lg border border-[var(--bg-glass-border)]">
+                    <span className="flex items-center gap-1.5 text-[var(--text-muted)] text-[10px] uppercase font-bold tracking-wider mb-1">
+                      <Droplets size={12} className={f.precipitation_sum > 0 ? "text-blue-500" : ""} /> Curah Hujan
+                    </span>
+                    <span className="font-mono font-bold text-sm text-[var(--text-primary)]">
+                      {f.precipitation_sum} <span className="text-[10px] text-[var(--text-muted)] font-sans">mm</span>
+                    </span>
                   </div>
-                  <div className="text-xs text-[var(--text-secondary)] mt-1">
-                    {rec.desc}
+
+                  {/* Sinar Matahari */}
+                  <div className="flex flex-col bg-[var(--bg-primary)] p-2.5 rounded-lg border border-[var(--bg-glass-border)]">
+                    <span className="flex items-center gap-1.5 text-[var(--text-muted)] text-[10px] uppercase font-bold tracking-wider mb-1">
+                      <Sun size={12} className="text-amber-500" /> Penyinaran
+                    </span>
+                    <span className="font-mono font-bold text-sm text-[var(--text-primary)]">
+                      {(f.sunshine_duration / 3600).toFixed(1)} <span className="text-[10px] text-[var(--text-muted)] font-sans">jam</span>
+                    </span>
                   </div>
-                </div>
-                
-                {/* Data Badge (Fills the right space on Desktop) */}
-                <div className="hidden sm:flex flex-col items-end shrink-0 text-[10px] text-[var(--text-secondary)]">
-                  {f.precipitation_sum > 0 ? (
-                    <div className="flex items-center gap-1.5 bg-[var(--bg-primary)] px-2.5 py-1.5 rounded-lg border border-[var(--bg-glass-border)] shadow-sm">
-                      <Droplets size={14} className="text-blue-500" />
-                      <span className="font-mono font-bold text-[var(--text-primary)] text-xs">{f.precipitation_sum}</span> mm
+                  
+                  {/* Sunrise / Sunset */}
+                  <div className="flex flex-col bg-[var(--bg-primary)] p-2.5 rounded-lg border border-[var(--bg-glass-border)]">
+                    <span className="flex items-center gap-1.5 text-[var(--text-muted)] text-[10px] uppercase font-bold tracking-wider mb-1">
+                      <Sunrise size={12} className="text-orange-500" /> Matahari
+                    </span>
+                    <div className="flex flex-col gap-0.5 font-mono font-bold text-[11px] text-[var(--text-primary)]">
+                      <span className="flex items-center gap-1"><Sunrise size={10} className="text-[var(--text-muted)]"/> {new Date(f.sunrise).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</span>
+                      <span className="flex items-center gap-1"><Sunset size={10} className="text-[var(--text-muted)]"/> {new Date(f.sunset).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5 bg-[var(--bg-primary)] px-2.5 py-1.5 rounded-lg border border-[var(--bg-glass-border)] shadow-sm">
-                      <Sun size={14} className="text-amber-500" />
-                      <span className="font-mono font-bold text-[var(--text-primary)] text-xs">{(f.sunshine_duration / 3600).toFixed(1)}</span> jam
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+                  </div>
+               </div>
+               
+               {/* Recommendation Box */}
+               <div className={`mt-auto p-4 rounded-xl border ${rec.bg} flex flex-col gap-1.5`}>
+                 <div className={`text-sm font-bold flex items-center ${rec.color}`}>
+                   {rec.icon} <span>{rec.title}</span>
+                 </div>
+                 <div className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                   {rec.desc}
+                 </div>
+               </div>
+             </div>
           );
         })}
       </div>
