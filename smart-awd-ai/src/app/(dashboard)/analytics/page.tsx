@@ -28,9 +28,9 @@ export default function AnalyticsPage() {
   const { data, loading: dataLoading } = useFirebaseData(selectedDeviceId || undefined, dataLimit);
 
   // Computed analytics data
-  const { chartData, kpi } = useMemo(() => {
+  const { chartData, kpi, totalRawData } = useMemo(() => {
     if (!data || data.length === 0) {
-      return { chartData: [], kpi: null };
+      return { chartData: [], kpi: null, totalRawData: 0 };
     }
 
     const now = Date.now();
@@ -130,7 +130,8 @@ export default function AnalyticsPage() {
         maxLevel: maxLevel.toFixed(1),
         minLevel: minLevel.toFixed(1),
         avgSignal: Math.round(sumSignal / formattedData.length)
-      } : { avgLevel: "0", maxLevel: "0", minLevel: "0", avgSignal: 0 }
+      } : { avgLevel: "0", maxLevel: "0", minLevel: "0", avgSignal: 0 },
+      totalRawData: validData.length
     };
   }, [data, timeFilter]);
 
@@ -142,7 +143,14 @@ export default function AnalyticsPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[var(--bg-card)] p-6 rounded-2xl border border-[var(--bg-glass-border)]">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-[var(--text-primary)]">Analytics & Insight</h1>
-          <p className="text-[var(--text-secondary)] mt-1 text-sm md:text-base">Analisa data historis tinggi air dan sinyal perangkat</p>
+          <p className="text-[var(--text-secondary)] mt-1 text-sm md:text-base flex flex-wrap items-center gap-2">
+            Analisa data historis tinggi air dan sinyal perangkat
+            {!loading && totalRawData > 0 && (
+              <span className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 font-medium bg-blue-500/10 px-2 py-0.5 rounded-full text-xs">
+                {totalRawData} data ditarik
+              </span>
+            )}
+          </p>
         </div>
         
         <div className="flex flex-col md:flex-row items-start md:items-center gap-3">
