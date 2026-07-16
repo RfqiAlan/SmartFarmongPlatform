@@ -20,7 +20,8 @@ import {
   Play,
   Square,
   Radio,
-  Gauge
+  Gauge,
+  Shuffle
 } from "lucide-react";
 import Swal from "sweetalert2";
 import Link from "next/link";
@@ -76,9 +77,12 @@ export default function AdminPage() {
   const [isSending, setIsSending] = useState(false);
   const [isAutoInjecting, setIsAutoInjecting] = useState(false);
   const [autoInjectCount, setAutoInjectCount] = useState(0);
+  const [randomSignal, setRandomSignal] = useState(false);
   const [history, setHistory] = useState<Array<{ device: string; status: string; time: string }>>([]);
   const autoInjectRef = useRef<NodeJS.Timeout | null>(null);
   const autoInjectDeviceRef = useRef<string>("");
+  const lastRandomSignalRef = useRef(22);  // tracks last random value for smooth walk
+  const randomSignalRef = useRef(false);
 
   // Cleanup interval and override on unmount
   useEffect(() => {
@@ -101,6 +105,7 @@ export default function AdminPage() {
   useEffect(() => { statusRef.current = status; }, [status]);
   useEffect(() => { batteryVoltageRef.current = batteryVoltage; }, [batteryVoltage]);
   useEffect(() => { signalStrengthRef.current = signalStrength; }, [signalStrength]);
+  useEffect(() => { randomSignalRef.current = randomSignal; }, [randomSignal]);
 
   const handleAutoInject = useCallback(async () => {
     if (isAutoInjecting) {
@@ -143,12 +148,23 @@ export default function AdminPage() {
 
     // Send first data immediately
     const sendOne = async () => {
+      // Random walk for signal: ±1 or ±2 step, clamped to 15-28
+      let sig = parseInt(signalStrengthRef.current);
+      if (randomSignalRef.current) {
+        const step = Math.random() < 0.7 ? 1 : 2; // mostly ±1, sometimes ±2
+        const direction = Math.random() < 0.5 ? -1 : 1;
+        sig = lastRandomSignalRef.current + step * direction;
+        sig = Math.max(15, Math.min(28, sig));
+        lastRandomSignalRef.current = sig;
+        setSignalStrength(sig.toString());
+      }
+
       const payload = {
         device_id: autoInjectDeviceRef.current,
         water_level_cm: parseFloat(waterLevelRef.current),
         status: statusRef.current,
         battery_voltage: parseFloat(batteryVoltageRef.current),
-        signal_strength: parseInt(signalStrengthRef.current),
+        signal_strength: sig,
         created_at: Date.now(),
         _source: "admin_auto",
       };
@@ -498,9 +514,27 @@ export default function AdminPage() {
 
               {/* Signal Strength */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-[var(--text-secondary)] flex items-center gap-1.5">
-                  <SignalIcon size={13} className="text-purple-500" /> Signal Strength
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-[var(--text-secondary)] flex items-center gap-1.5">
+                    <SignalIcon size={13} className="text-purple-500" /> Signal Strength
+                  </label>
+                  <button
+                    onClick={() => {
+                      setRandomSignal(!randomSignal);
+                      if (!randomSignal) {
+                        lastRandomSignalRef.current = parseInt(signalStrength) || 22;
+                      }
+                    }}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${
+                      randomSignal
+                        ? "bg-purple-500/20 text-purple-500 border border-purple-500/30"
+                        : "bg-[var(--bg-glass)] text-[var(--text-muted)] border border-[var(--bg-glass-border)] hover:text-[var(--text-secondary)]"
+                    }`}
+                  >
+                    <Shuffle size={11} />
+                    {randomSignal ? "Random ON" : "Random"}
+                  </button>
+                </div>
                 <input
                   type="number"
                   step="1"
@@ -508,7 +542,8 @@ export default function AdminPage() {
                   max="31"
                   value={signalStrength}
                   onChange={(e) => setSignalStrength(e.target.value)}
-                  className="w-full px-4 py-3 bg-[var(--bg-glass)] border border-[var(--bg-glass-border)] rounded-xl text-[var(--text-primary)] font-mono text-lg font-bold focus:border-purple-500 focus:ring-1 focus:ring-purple-500/30 outline-none transition-all"
+                  disabled={randomSignal}
+                  className={`w-full px-4 py-3 bg-[var(--bg-glass)] border border-[var(--bg-glass-border)] rounded-xl text-[var(--text-primary)] font-mono text-lg font-bold focus:border-purple-500 focus:ring-1 focus:ring-purple-500/30 outline-none transition-all ${randomSignal ? "opacity-50" : ""}`}
                 />
                 <input
                   type="range"
@@ -517,13 +552,21 @@ export default function AdminPage() {
                   step="1"
                   value={signalStrength}
                   onChange={(e) => setSignalStrength(e.target.value)}
-                  className="w-full accent-purple-500 cursor-pointer"
+                  disabled={randomSignal}
+                  className={`w-full accent-purple-500 cursor-pointer ${randomSignal ? "opacity-50" : ""}`}
                 />
                 <div className="flex justify-between text-[10px] font-mono text-[var(--text-muted)]">
                   <span>0 (Hilang)</span>
-                  <span className="text-purple-500 font-bold">{signalStrength}</span>
+                  <span className="text-purple-500 font-bold">
+                    {signalStrength}{randomSignal ? " 🎲" : ""}
+                  </span>
                   <span>31 (Kuat)</span>
                 </div>
+                {randomSignal && (
+                  <div className="text-[10px] text-purple-400 italic">
+                    Acak otomatis rentang 15–28, bergerak halus ±1–2 per kirim
+                  </div>
+                )}
               </div>
             </div>
 
