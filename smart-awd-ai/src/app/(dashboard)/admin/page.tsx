@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useDevices } from "@/hooks/useDevices";
 import { useLatestDataForAllDevices } from "@/hooks/useFirebaseData";
 import { database } from "@/lib/firebase";
-import { ref, push } from "firebase/database";
+import { ref, push, set, remove } from "firebase/database";
 import { 
   ShieldAlert, 
   Send, 
@@ -16,6 +16,9 @@ import {
   CheckCircle, 
   XCircle,
   RotateCcw,
+  Play,
+  Square,
+  Radio,
   Gauge
 } from "lucide-react";
 import Swal from "sweetalert2";
@@ -70,7 +73,115 @@ export default function AdminPage() {
   const [batteryVoltage, setBatteryVoltage] = useState<string>("4.1");
   const [signalStrength, setSignalStrength] = useState<string>("22");
   const [isSending, setIsSending] = useState(false);
+  const [isAutoInjecting, setIsAutoInjecting] = useState(false);
+  const [autoInjectCount, setAutoInjectCount] = useState(0);
   const [history, setHistory] = useState<Array<{ device: string; status: string; time: string }>>([]);
+  const autoInjectRef = useRef<NodeJS.Timeout | null>(null);
+  const autoInjectDeviceRef = useRef<string>("");
+
+  // Cleanup interval on unmount
+  useEffect(() => {
+    return () => {
+      if (autoInjectRef.current) {
+        clearInterval(autoInjectRef.current);
+      }
+    };
+  }, []);
+
+  // Store latest values in refs so the interval callback always reads current values
+  const waterLevelRef = useRef(waterLevel);
+  const statusRef = useRef(status);
+  const batteryVoltageRef = useRef(batteryVoltage);
+  const signalStrengthRef = useRef(signalStrength);
+  useEffect(() => { waterLevelRef.current = waterLevel; }, [waterLevel]);
+  useEffect(() => { statusRef.current = status; }, [status]);
+  useEffect(() => { batteryVoltageRef.current = batteryVoltage; }, [batteryVoltage]);
+  useEffect(() => { signalStrengthRef.current = signalStrength; }, [signalStrength]);
+
+  const handleAutoInject = useCallback(async () => {
+    if (isAutoInjecting) {
+      // STOP auto inject
+      if (autoInjectRef.current) {
+        clearInterval(autoInjectRef.current);
+        autoInjectRef.current = null;
+      }
+      // Remove sensor_paused flag from Firebase
+      if (autoInjectDeviceRef.current) {
+        await remove(ref(database, `admin/sensor_paused/${autoInjectDeviceRef.current}`));
+      }
+      setIsAutoInjecting(false);
+      setAutoInjectCount(0);
+      Swal.fire({
+        icon: "info",
+        title: "Auto Inject Dihentikan",
+        text: "Sensor asli sekarang bisa mengirim data kembali.",
+        background: "var(--bg-secondary)",
+        color: "var(--text-primary)",
+        confirmButtonColor: "#3b82f6",
+        timer: 2000,
+        timerProgressBar: true,
+      });
+      return;
+    }
+
+    if (!selectedDevice) {
+      Swal.fire({ icon: "warning", title: "Pilih Device!", text: "Silakan pilih device target.", background: "var(--bg-secondary)", color: "var(--text-primary)", confirmButtonColor: "#3b82f6" });
+      return;
+    }
+
+    // START auto inject
+    autoInjectDeviceRef.current = selectedDevice;
+    setIsAutoInjecting(true);
+    setAutoInjectCount(0);
+
+    // Set sensor_paused flag in Firebase so ESP32 knows to hold data
+    await set(ref(database, `admin/sensor_paused/${selectedDevice}`), {
+      paused: true,
+      paused_at: Date.now(),
+      paused_by: "admin_panel",
+    });
+
+    // Send first data immediately
+    const sendOne = async () => {
+      const payload = {
+        device_id: autoInjectDeviceRef.current,
+        water_level_cm: parseFloat(waterLevelRef.current),
+        status: statusRef.current,
+        battery_voltage: parseFloat(batteryVoltageRef.current),
+        signal_strength: parseInt(signalStrengthRef.current),
+        created_at: Date.now(),
+        _source: "admin_auto",
+      };
+      await push(ref(database, "data"), payload);
+      setAutoInjectCount((prev) => prev + 1);
+      setHistory((prev) => [
+        { device: autoInjectDeviceRef.current, status: statusRef.current, time: new Date().toLocaleTimeString("id-ID") },
+        ...prev.slice(0, 49),
+      ]);
+    };
+
+    await sendOne();
+
+    // Then every 10 seconds
+    autoInjectRef.current = setInterval(async () => {
+      try {
+        await sendOne();
+      } catch (err) {
+        console.error("Auto inject error:", err);
+      }
+    }, 10000);
+
+    Swal.fire({
+      icon: "success",
+      title: "Auto Inject Dimulai! 🔴",
+      html: `Data akan dikirim setiap <b>10 detik</b> ke <b>${selectedDevice}</b>.<br>Sensor asli di-<i>pause</i>. Tekan tombol lagi untuk berhenti.`,
+      background: "var(--bg-secondary)",
+      color: "var(--text-primary)",
+      confirmButtonColor: "#ef4444",
+      timer: 3000,
+      timerProgressBar: true,
+    });
+  }, [isAutoInjecting, selectedDevice]);
 
   const applyPreset = (preset: typeof PRESETS[0]) => {
     setWaterLevel(preset.values.water_level_cm.toString());
@@ -417,27 +528,61 @@ export default function AdminPage() {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3 mt-6 pt-6 border-t border-[var(--bg-glass-border)]">
+            <div className="flex flex-col gap-3 mt-6 pt-6 border-t border-[var(--bg-glass-border)]">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={handleInject}
+                  disabled={isSending || isAutoInjecting || !selectedDevice}
+                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-sm hover:shadow-[0_0_25px_rgba(59,130,246,0.4)] transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+                >
+                  {isSending ? (
+                    <RotateCcw size={18} className="animate-spin" />
+                  ) : (
+                    <Send size={18} />
+                  )}
+                  {isSending ? "Mengirim..." : "Inject 1 Data"}
+                </button>
+                <button
+                  onClick={handleBulkInject}
+                  disabled={isSending || isAutoInjecting || !selectedDevice}
+                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-sm hover:shadow-[0_0_25px_rgba(139,92,246,0.4)] transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+                >
+                  <Zap size={18} />
+                  Bulk Inject (10 Data)
+                </button>
+              </div>
+
+              {/* Auto Inject / Streaming Button */}
               <button
-                onClick={handleInject}
-                disabled={isSending || !selectedDevice}
-                className="flex-1 flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-sm hover:shadow-[0_0_25px_rgba(59,130,246,0.4)] transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+                onClick={handleAutoInject}
+                disabled={!selectedDevice && !isAutoInjecting}
+                className={`w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-bold text-sm transition-all active:scale-[0.98] ${
+                  isAutoInjecting
+                    ? "bg-gradient-to-r from-red-600 to-rose-600 text-white hover:shadow-[0_0_25px_rgba(239,68,68,0.5)] animate-pulse"
+                    : "bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:shadow-[0_0_25px_rgba(16,185,129,0.4)] disabled:opacity-50 disabled:cursor-not-allowed"
+                }`}
               >
-                {isSending ? (
-                  <RotateCcw size={18} className="animate-spin" />
+                {isAutoInjecting ? (
+                  <>
+                    <Square size={18} className="fill-current" />
+                    <span>Stop Auto Inject</span>
+                    <span className="ml-1 px-2 py-0.5 bg-white/20 rounded-full text-xs">
+                      {autoInjectCount} terkirim
+                    </span>
+                  </>
                 ) : (
-                  <Send size={18} />
+                  <>
+                    <Play size={18} className="fill-current" />
+                    Auto Inject (tiap 10 detik) + Pause Sensor
+                  </>
                 )}
-                {isSending ? "Mengirim..." : "Inject 1 Data"}
               </button>
-              <button
-                onClick={handleBulkInject}
-                disabled={isSending || !selectedDevice}
-                className="flex-1 flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-sm hover:shadow-[0_0_25px_rgba(139,92,246,0.4)] transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
-              >
-                <Zap size={18} />
-                Bulk Inject (10 Data)
-              </button>
+              {isAutoInjecting && (
+                <div className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-xs font-medium">
+                  <Radio size={14} className="animate-pulse" />
+                  <span>LIVE — mengirim data ke <b>{autoInjectDeviceRef.current}</b> setiap 10 detik. Sensor asli di-pause.</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
