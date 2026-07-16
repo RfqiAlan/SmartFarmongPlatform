@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { database } from "@/lib/firebase";
 import { ref, query, orderByChild, limitToLast, onValue } from "firebase/database";
+import { getAdminOverrideDevices } from "./useAdminOverride";
 
 export interface SensorData {
   id: string;
@@ -12,6 +13,7 @@ export interface SensorData {
   signal_strength: number;
   status: string;
   created_at: number | string;
+  _source?: string;
 }
 
 export function useFirebaseData(deviceId?: string, limit: number = 100) {
@@ -41,7 +43,18 @@ export function useFirebaseData(deviceId?: string, limit: number = 100) {
 
         // Filter if deviceId is provided
         const filtered = deviceId ? parsed.filter(d => d.device_id === deviceId) : parsed;
-        setData(filtered);
+
+        // Admin override: hide real sensor data for devices in override mode
+        const overrideDevices = getAdminOverrideDevices();
+        const finalData = filtered.filter(d => {
+          if (overrideDevices.includes(d.device_id)) {
+            // Only show admin-injected data for overridden devices
+            return d._source === "admin_auto";
+          }
+          return true;
+        });
+
+        setData(finalData);
       } else {
         setData([]);
       }

@@ -3,8 +3,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useDevices } from "@/hooks/useDevices";
 import { useLatestDataForAllDevices } from "@/hooks/useFirebaseData";
+import { setAdminOverride, clearAdminOverride } from "@/hooks/useAdminOverride";
 import { database } from "@/lib/firebase";
-import { ref, push, set, remove } from "firebase/database";
+import { ref, push } from "firebase/database";
 import { 
   ShieldAlert, 
   Send, 
@@ -79,11 +80,14 @@ export default function AdminPage() {
   const autoInjectRef = useRef<NodeJS.Timeout | null>(null);
   const autoInjectDeviceRef = useRef<string>("");
 
-  // Cleanup interval on unmount
+  // Cleanup interval and override on unmount
   useEffect(() => {
     return () => {
       if (autoInjectRef.current) {
         clearInterval(autoInjectRef.current);
+      }
+      if (autoInjectDeviceRef.current) {
+        clearAdminOverride(autoInjectDeviceRef.current);
       }
     };
   }, []);
@@ -105,9 +109,9 @@ export default function AdminPage() {
         clearInterval(autoInjectRef.current);
         autoInjectRef.current = null;
       }
-      // Remove sensor_paused flag from Firebase
+      // Remove override from localStorage
       if (autoInjectDeviceRef.current) {
-        await remove(ref(database, `admin/sensor_paused/${autoInjectDeviceRef.current}`));
+        clearAdminOverride(autoInjectDeviceRef.current);
       }
       setIsAutoInjecting(false);
       setAutoInjectCount(0);
@@ -134,12 +138,8 @@ export default function AdminPage() {
     setIsAutoInjecting(true);
     setAutoInjectCount(0);
 
-    // Set sensor_paused flag in Firebase so ESP32 knows to hold data
-    await set(ref(database, `admin/sensor_paused/${selectedDevice}`), {
-      paused: true,
-      paused_at: Date.now(),
-      paused_by: "admin_panel",
-    });
+    // Set admin override in localStorage so UI hides real sensor data
+    setAdminOverride(selectedDevice);
 
     // Send first data immediately
     const sendOne = async () => {
